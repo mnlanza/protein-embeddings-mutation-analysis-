@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # === Usage Check ===
-if [ $# -lt 7 ]; then
+if [ $# -lt 8 ]; then
   echo "Usage: $0 POS GENE_START GENE_END SEQ_ID AID INPUT_FASTA LAYER [left_margin=2000] [right_margin=1000]"
   exit 1
 fi
@@ -91,6 +91,7 @@ evo_gcp submit --job "$job_id" \
   --output_type embedding \
   --input_fasta "$(pwd)/$fasta_out" \
   --job_version "$job_version" \
+  --embedding_layers "blocks.${layer}.mlp.l3" \
   --wait
 #   --embedding_layers "$layer" \
 

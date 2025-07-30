@@ -35,22 +35,22 @@ The main script orchestrates the analysis for multiple sequences:
 
 ```bash
 # Run analysis for all AIDs at layer 28
-./scripts/run_embed_mut_analysis.sh 28
+./run_embed_mut_analysis.sh 28
 
 # Run analysis for specific AID at layer 28
-./scripts/run_embed_mut_analysis.sh 28 baa
+./run_embed_mut_analysis.sh 28 baa
 ```
 
 Parameters:
 - Layer number (required)
 - AID filter (optional)
 
-### 2. Codon Analysis Process (`analyze_codon_pos_embed.sh`)
+### 2. Codon Analysis Process (`scripts/analyze_codon_pos_embed.sh`)
 
 For each mutation in the dataset:
 
 1. **Sequence Generation**
-   - Uses `gen_for_codons_variants.py` to generate sequence variants
+   - Uses `scripts/gen_for_codons_variants.py` to generate sequence variants
    - Extracts sequence context around mutation site
    - Parameters:
      - Left margin: 2000bp (default)
@@ -82,11 +82,16 @@ For each mutation in the dataset:
 │       └── {layer}/
 │           ├── query_{seq_id}_{pos}.fasta
 │           └── query_{seq_id}_{pos}.tab
-└── figures/
-    └── {aid}/
-        └── {layer}/
-            ├── cosine_sim_*.pdf
-            └── euclidean_dist_*.pdf
+├── figures/
+│   └── {aid}/
+│       └── {layer}/
+│           ├── cosine_sim_*.pdf
+│           └── euclidean_dist_*.pdf
+├── scripts/
+│   ├── analyze_codon_pos_embed.sh
+│   ├── gen_for_codons_variants.py
+│   └── plot_layer.R
+└── run_embed_mut_analysis.sh
 ```
 
 ## Output Files

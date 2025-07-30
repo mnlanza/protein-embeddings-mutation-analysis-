@@ -22,12 +22,27 @@ log_invert_cosine_sim <- sapply(1:nrow(ref_mat), function(i) {
   return(log_invert_cosine_sim)
 }
 
+# Helper function to get descriptive mutation type
+get_mutation_type <- function(var_name) {
+  type <- substr(var_name, 1, 3)
+  if (type == "mut") {
+    return("AMR Actual Mutation")
+  } else if (type == "syn") {
+    return("Synonymous Mutation")
+  } else if (type == "sto") {
+    return("Stop Codon Mutation")
+  } else {
+    return("Unknown")
+  }
+}
+
 plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NULL, 
-                                xlim_bounds = NULL) {
+                                xlim_bounds = NULL, var_name = "") {
+  mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(log_invert_cosine_sim), cos_sim = log_invert_cosine_sim)
   p <- ggplot(df, aes(x = pos, y = cos_sim)) +
     geom_point(color = "darkred", alpha = 0.6, size = 1.2) +
-    labs(paste0("Log Inverse Cosine Similarity between the two vectors in layer ", layer), 
+    labs(title = paste0("Log Inverse Cosine Similarity: ", mutation_type, " vs Reference (Layer ", layer, ")"),
          x = "Nucleotide Position",
          y = "Log Inverse Cosine Similarity") +
     theme_minimal()
@@ -63,11 +78,12 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
 }
 
 plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL, 
-                                xlim_bounds = NULL) {
+                                xlim_bounds = NULL, var_name = "") {
+  mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(euclidean_distances), euclidean_dist = euclidean_distances)
   p <- ggplot(df, aes(x = pos, y = euclidean_dist)) +
     geom_point(color = "darkred", alpha = 0.6, size = 1.2) +
-    labs(title = paste0("Euclidean Distance between the two vectors in layer ", layer), 
+    labs(title = paste0("Euclidean Distance: ", mutation_type, " vs Reference (Layer ", layer, ")"),
          x = "Nucleotide Position",
          y = "Euclidean Distance") +
     theme_minimal()
@@ -102,6 +118,14 @@ plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL
 }
 
 plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
+  # Make output_dir absolute if it isn't already
+  if (!startsWith(output_dir, "/")) {
+    output_dir <- file.path(getwd(), output_dir)
+  }
+  
+  # Create output directory if it doesn't exist
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
   # Read TSV with colClasses to ensure proper types
   df <- read.delim(layer_data_tsv, header = TRUE, 
                    colClasses = c(coord="integer",
@@ -183,24 +207,36 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
   codon_pos_adj <- 1
 
   suppressWarnings({
-  p1 <- plot_cosine_similarity(mut_diff_cosine_sim, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
-  p2 <- plot_euclidean_distance(mut_diff_dist, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
+  p1 <- plot_cosine_similarity(mut_diff_cosine_sim, layer = layer, 
+                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                             var_name = "mut_diff_cosine_sim")
+  p2 <- plot_euclidean_distance(mut_diff_dist, layer = layer, 
+                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                               var_name = "mut_diff_dist")
 
-  p3 <- plot_cosine_similarity(syn_diff_cosine_sim, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
-  p4 <- plot_euclidean_distance(syn_diff_dist, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
+  p3 <- plot_cosine_similarity(syn_diff_cosine_sim, layer = layer, 
+                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                             var_name = "syn_diff_cosine_sim")
+  p4 <- plot_euclidean_distance(syn_diff_dist, layer = layer, 
+                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                               var_name = "syn_diff_dist")
 
-  p5 <- plot_cosine_similarity(stop_diff_cosine_sim, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
-  p6 <- plot_euclidean_distance(stop_diff_dist, layer = layer, highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl))
+  p5 <- plot_cosine_similarity(stop_diff_cosine_sim, layer = layer, 
+                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                             var_name = "stop_diff_cosine_sim")
+  p6 <- plot_euclidean_distance(stop_diff_dist, layer = layer, 
+                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
+                               var_name = "stop_diff_dist")
   })
 
+  # Use file.path to construct proper paths
+  ggsave(file.path(output_dir, "cosine_sim_mut.pdf"), p1, width = 8, height = 6)
+  ggsave(file.path(output_dir, "euclidean_dist_mut.pdf"), p2, width = 8, height = 6)
 
-  ggsave(paste0(output_dir, "/cosine_sim_mut.pdf"), p1, width = 8, height = 6)
-  ggsave(paste0(output_dir, "/euclidean_dist_mut.pdf"), p2, width = 8, height = 6)
+  ggsave(file.path(output_dir, "cosine_sim_syn.pdf"), p3, width = 8, height = 6)
+  ggsave(file.path(output_dir, "euclidean_dist_syn.pdf"), p4, width = 8, height = 6)
 
-  ggsave(paste0(output_dir, "/cosine_sim_syn.pdf"), p3, width = 8, height = 6)
-  ggsave(paste0(output_dir, "/euclidean_dist_syn.pdf"), p4, width = 8, height = 6)
-
-  ggsave(paste0(output_dir, "/cosine_sim_stop.pdf"), p5, width = 8, height = 6)
-  ggsave(paste0(output_dir, "/euclidean_dist_stop.pdf"), p6, width = 8, height = 6)
+  ggsave(file.path(output_dir, "cosine_sim_stop.pdf"), p5, width = 8, height = 6)
+  ggsave(file.path(output_dir, "euclidean_dist_stop.pdf"), p6, width = 8, height = 6)
   print("Done!")
 }
