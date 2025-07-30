@@ -53,19 +53,19 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
     mut_pos_df <- data.frame(
       pos = highlight[1],
       cos_sim = df$cos_sim[highlight[1]],
-      label = "Mutation Position"
+      label = factor("Mutation Position", levels = c("Mutation Position", "Gene End"))
     )
     gene_end_df <- data.frame(
       pos = highlight[2],
       cos_sim = df$cos_sim[highlight[2]],
-      label = "Gene End"
+      label = factor("Gene End", levels = c("Mutation Position", "Gene End"))
     )
     
     # Add points with different colors and include in legend
     p <- p + 
       geom_point(data = mut_pos_df, aes(x = pos, y = cos_sim, color = label), size = 2.5) +
       geom_point(data = gene_end_df, aes(x = pos, y = cos_sim, color = label), size = 2.5) +
-      scale_color_manual(values = c("Gene End" = "green", "Mutation Position" = "blue")) +
+      scale_color_manual(values = c("Mutation Position" = "blue", "Gene End" = "green")) +
       theme(legend.position = "bottom",
             legend.title = element_blank())
   }
@@ -94,19 +94,19 @@ plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL
     mut_pos_df <- data.frame(
       pos = highlight[1],
       euclidean_dist = df$euclidean_dist[highlight[1]],
-      label = "Mutation Position"
+      label = factor("Mutation Position", levels = c("Mutation Position", "Gene End"))
     )
     gene_end_df <- data.frame(
       pos = highlight[2],
       euclidean_dist = df$euclidean_dist[highlight[2]],
-      label = "Gene End"
+      label = factor("Gene End", levels = c("Mutation Position", "Gene End"))
     )
     
     # Add points with different colors and include in legend
     p <- p + 
       geom_point(data = mut_pos_df, aes(x = pos, y = euclidean_dist, color = label), size = 2.5) +
       geom_point(data = gene_end_df, aes(x = pos, y = euclidean_dist, color = label), size = 2.5) +
-      scale_color_manual(values = c("Gene End" = "green", "Mutation Position" = "blue")) +
+      scale_color_manual(values = c("Mutation Position" = "blue", "Gene End" = "green")) +
       theme(legend.position = "bottom",
             legend.title = element_blank())
   }
