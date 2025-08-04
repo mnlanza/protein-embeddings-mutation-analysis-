@@ -5,7 +5,7 @@ set -euo pipefail
 
 # === Usage Check ===
 if [ $# -lt 8 ]; then
-  echo "Usage: $0 POS GENE_START GENE_END SEQ_ID AID INPUT_FASTA LAYER [left_margin=2000] [right_margin=1000]"
+  echo "Usage: $0 POS GENE_START GENE_END SEQ_ID AID INPUT_FASTA LAYER TGT_CODON [left_margin=2000] [right_margin=1000]"
   exit 1
 fi
 
@@ -59,7 +59,7 @@ mkdir -p "output/${job_id}/${layer}" "figures/${job_id}/${layer}"
 fasta_out="output/${job_id}/${layer}/query_${seq_id}_${pos}.fasta"
 plot_info_table="output/${job_id}/${layer}/query_${seq_id}_${pos}.tab"
 job_dir="jobs/${job_id}-${job_version}"
-compare_out="output/${job_id}/${layer}/compare_strands_${seq_id}_${pos}.tab"
+
 
 # Create job directory before running anything
 mkdir -p "$job_dir"
