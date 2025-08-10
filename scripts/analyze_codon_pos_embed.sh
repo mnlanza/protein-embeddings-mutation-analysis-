@@ -86,14 +86,13 @@ python3 scripts/gen_for_codons_variants.py \
   --layer "$layer" \
   --mut-codon "$tgt_codon"
 
-# submit job
+# submit job pre_norm test
 evo_gcp submit --job "$job_id" \
   --output_type embedding \
   --input_fasta "$(pwd)/$fasta_out" \
   --job_version "$job_version" \
-  --embedding_layers "blocks.${layer}.mlp.l3" \
+  --embedding_layers "blocks.${layer}.pre_norm" \
   --wait
-#   --embedding_layers "$layer" \
 
 # download results
 evo_gcp download --job "$job_id" \
@@ -110,4 +109,18 @@ plot_layer_diff(
 )
 "
 
-# jobs are at $(pwd)/jobs/${job_id}-${job_version} job/aid(lowercase)/layer/"${seq_id//_/-}-${pos}-layer${layer}
+# Clean up job directory to free up space
+echo "Cleaning up job directory: $job_dir"
+if [ -d "$job_dir" ]; then
+    echo "  → Removing directory and all its contents..."
+    rm -rf "$job_dir"
+    if [ $? -eq 0 ]; then
+        echo "  ✓ Cleanup successful"
+    else
+        echo "  ! Warning: Could not fully remove directory"
+    fi
+else
+    echo "  ! Directory does not exist, nothing to clean"
+fi
+
+# Note: Plots and data are preserved in figures/${aid}/${layer} and output/${aid}/${layer}

@@ -37,37 +37,61 @@ get_mutation_type <- function(var_name) {
 }
 
 plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NULL, 
-                                xlim_bounds = NULL, var_name = "") {
+                                xlim_bounds = NULL, var_name = "", mutation_region = NULL,
+                                gene_start_pos = NULL, color_by_codon = TRUE) {
   mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(log_invert_cosine_sim), cos_sim = log_invert_cosine_sim)
-  p <- ggplot(df, aes(x = pos, y = cos_sim)) +
-    geom_point(color = "darkred", alpha = 0.6, size = 1.2) +
+  # Start base plot
+  p <- ggplot(df, aes(x = pos, y = cos_sim))
+
+  # Optional: shaded region for mutation codon (with legend) FIRST so points draw on top
+  if (!is.null(mutation_region) && length(mutation_region) == 2) {
+    region_df <- data.frame(
+      xmin = mutation_region[1],
+      xmax = mutation_region[2],
+      ymin = -Inf,
+      ymax = Inf,
+      label = factor("Mutation Codon", levels = c("Mutation Codon"))
+    )
+    p <- p +
+      geom_rect(
+        data = region_df,
+        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+        inherit.aes = FALSE,
+        alpha = 0.22,
+        color = "#6baed6",
+        linewidth = 0.2
+      ) +
+      scale_fill_manual(values = c("Mutation Codon" = "#6baed6"), name = NULL)
+  }
+
+  # Points: optionally color by codon position relative to gene_start_pos
+  if (!is.null(gene_start_pos) && isTRUE(color_by_codon)) {
+    df$codon_i <- ((df$pos - gene_start_pos) %% 3) + 1
+    p <- p +
+      geom_point(data = df, aes(x = pos, y = cos_sim, color = factor(codon_i)), alpha = 0.6, size = 1.2) +
+      scale_color_manual(name = "Codon position",
+                         values = c("1" = "red", "2" = "orange", "3" = "green"))
+  } else {
+    p <- p + geom_point(color = "darkred", alpha = 0.6, size = 1.2)
+  }
+
+  p <- p +
     labs(title = paste0("Log Inverse Cosine Similarity: ", mutation_type, " vs Reference (Layer ", layer, ")"),
          x = "Nucleotide Position",
          y = "Log Inverse Cosine Similarity") +
     theme_minimal()
     
-  # Optional: highlight positions with different colors and add to legend
+  # (moved earlier so it draws under points)
+
+  # Optional: vertical lines for gene start/end (fixed colors to avoid legend conflicts)
   if (!is.null(highlight)) {
-    # Create data frames for each highlight point with labels
-    mut_pos_df <- data.frame(
-      pos = highlight[1],
-      cos_sim = df$cos_sim[highlight[1]],
-      label = factor("Mutation Position", levels = c("Mutation Position", "Gene End"))
-    )
-    gene_end_df <- data.frame(
-      pos = highlight[2],
-      cos_sim = df$cos_sim[highlight[2]],
-      label = factor("Gene End", levels = c("Mutation Position", "Gene End"))
-    )
-    
-    # Add points with different colors and include in legend
-    p <- p + 
-      geom_point(data = mut_pos_df, aes(x = pos, y = cos_sim, color = label), size = 2.5) +
-      geom_point(data = gene_end_df, aes(x = pos, y = cos_sim, color = label), size = 2.5) +
-      scale_color_manual(values = c("Mutation Position" = "blue", "Gene End" = "green")) +
-      theme(legend.position = "bottom",
-            legend.title = element_blank())
+    pos_vals <- as.numeric(highlight)
+    if (length(pos_vals) >= 2) {
+      p <- p +
+        geom_vline(xintercept = pos_vals[1], linetype = "dashed", linewidth = 0.5, color = "orange", show.legend = FALSE) +
+        geom_vline(xintercept = pos_vals[2], linetype = "dashed", linewidth = 0.5, color = "green", show.legend = FALSE)
+    }
   }
   
   # Optional: x-axis limits
@@ -78,37 +102,61 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
 }
 
 plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL, 
-                                xlim_bounds = NULL, var_name = "") {
+                                xlim_bounds = NULL, var_name = "", mutation_region = NULL,
+                                gene_start_pos = NULL, color_by_codon = TRUE) {
   mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(euclidean_distances), euclidean_dist = euclidean_distances)
-  p <- ggplot(df, aes(x = pos, y = euclidean_dist)) +
-    geom_point(color = "darkred", alpha = 0.6, size = 1.2) +
+  # Start base plot
+  p <- ggplot(df, aes(x = pos, y = euclidean_dist))
+
+  # Optional: shaded region for mutation codon (with legend) FIRST so points draw on top
+  if (!is.null(mutation_region) && length(mutation_region) == 2) {
+    region_df <- data.frame(
+      xmin = mutation_region[1],
+      xmax = mutation_region[2],
+      ymin = -Inf,
+      ymax = Inf,
+      label = factor("Mutation Codon", levels = c("Mutation Codon"))
+    )
+    p <- p +
+      geom_rect(
+        data = region_df,
+        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+        inherit.aes = FALSE,
+        alpha = 0.22,
+        color = "#6baed6",
+        linewidth = 0.2
+      ) +
+      scale_fill_manual(values = c("Mutation Codon" = "#6baed6"), name = NULL)
+  }
+
+  # Points: optionally color by codon position relative to gene_start_pos
+  if (!is.null(gene_start_pos) && isTRUE(color_by_codon)) {
+    df$codon_i <- ((df$pos - gene_start_pos) %% 3) + 1
+    p <- p +
+      geom_point(data = df, aes(x = pos, y = euclidean_dist, color = factor(codon_i)), alpha = 0.6, size = 1.2) +
+      scale_color_manual(name = "Codon position",
+                         values = c("1" = "red", "2" = "orange", "3" = "green"))
+  } else {
+    p <- p + geom_point(color = "darkred", alpha = 0.6, size = 1.2)
+  }
+
+  p <- p +
     labs(title = paste0("Euclidean Distance: ", mutation_type, " vs Reference (Layer ", layer, ")"),
          x = "Nucleotide Position",
          y = "Euclidean Distance") +
     theme_minimal()
     
-  # Optional: highlight positions with different colors and add to legend
+  # (moved earlier so it draws under points)
+
+  # Optional: vertical lines for gene start/end (fixed colors to avoid legend conflicts)
   if (!is.null(highlight)) {
-    # Create data frames for each highlight point with labels
-    mut_pos_df <- data.frame(
-      pos = highlight[1],
-      euclidean_dist = df$euclidean_dist[highlight[1]],
-      label = factor("Mutation Position", levels = c("Mutation Position", "Gene End"))
-    )
-    gene_end_df <- data.frame(
-      pos = highlight[2],
-      euclidean_dist = df$euclidean_dist[highlight[2]],
-      label = factor("Gene End", levels = c("Mutation Position", "Gene End"))
-    )
-    
-    # Add points with different colors and include in legend
-    p <- p + 
-      geom_point(data = mut_pos_df, aes(x = pos, y = euclidean_dist, color = label), size = 2.5) +
-      geom_point(data = gene_end_df, aes(x = pos, y = euclidean_dist, color = label), size = 2.5) +
-      scale_color_manual(values = c("Mutation Position" = "blue", "Gene End" = "green")) +
-      theme(legend.position = "bottom",
-            legend.title = element_blank())
+    pos_vals <- as.numeric(highlight)
+    if (length(pos_vals) >= 2) {
+      p <- p +
+        geom_vline(xintercept = pos_vals[1], linetype = "dashed", linewidth = 0.5, color = "orange", show.legend = FALSE) +
+        geom_vline(xintercept = pos_vals[2], linetype = "dashed", linewidth = 0.5, color = "green", show.legend = FALSE)
+    }
   }
   
   if (!is.null(xlim_bounds)) {
@@ -169,32 +217,10 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
   library(reticulate)
   np <- import("numpy")
 
-  # Debug: print full path being attempted
-  print("Attempting to load file:")
+  # Plotting for multiple embedding types
+  print("Plotting cosine similarity and euclidean distance for embedding types...")
 
-  src_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", amino_acid, "_", codon, "_embeddings_blocks_", layer, "_mlp_l3.npy"))
-  stop_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_Z_TAG_embeddings_blocks_", layer, "_mlp_l3.npy"))
-  mut_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", mut_aa, "_", mut_codon, "_embeddings_blocks_", layer, "_mlp_l3.npy"))
-  syn_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", amino_acid, "_", syn_codon, "_embeddings_blocks_", layer, "_mlp_l3.npy"))
-
-  ref_mat <- py_to_r(src_df)[1, , ]
-  stop_mat <- py_to_r(stop_df)[1, , ]
-  mut_mat <- py_to_r(mut_df)[1, , ]
-  syn_mat <- py_to_r(syn_df)[1, , ]
-
-  # Compute distances
-  mut_diff_dist <- compute_euclidean_distances(ref_mat, mut_mat)
-  mut_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, mut_mat)
-
-  syn_diff_dist <- compute_euclidean_distances(ref_mat, syn_mat)
-  syn_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, syn_mat)
-
-  stop_diff_dist <- compute_euclidean_distances(ref_mat, stop_mat)
-  stop_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, stop_mat)
-
-  # Plotting
-  print("Plotting cosine similarity and euclidean distance...")
-
+  # Compute positional helpers once
   if (start <= left_margin) {
     left_margin <- start-1
   }
@@ -202,41 +228,95 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
   start_mut_hl <- left_margin + mut_nuc_pos
   gene_len <- end-start+1
   end_mut_hl <- gene_len + left_margin
-  #print(c(start_mut_hl, end_mut_hl))
+  gene_start_hl <- left_margin + 1
+  mut_codon_xmin <- start_mut_hl
+  mut_codon_xmax <- start_mut_hl + 2
 
-  codon_pos_adj <- 1
+  for (embed_type in c("mlp_l3", "pre_norm")) {
+    message(paste("Processing embed type:", embed_type))
+    # Load numpy arrays with suffix based on embed_type
+    src_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", amino_acid, "_", codon, "_embeddings_blocks_", layer, "_", embed_type, ".npy"))
+    stop_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_Z_TAG_embeddings_blocks_", layer, "_", embed_type, ".npy"))
+    mut_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", mut_aa, "_", mut_codon, "_embeddings_blocks_", layer, "_", embed_type, ".npy"))
+    syn_df <- np$load(paste0(embed_dir, "/output/input_", aa_coord, "_", amino_acid, "_", syn_codon, "_embeddings_blocks_", layer, "_", embed_type, ".npy"))
 
-  suppressWarnings({
-  p1 <- plot_cosine_similarity(mut_diff_cosine_sim, layer = layer, 
-                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                             var_name = "mut_diff_cosine_sim")
-  p2 <- plot_euclidean_distance(mut_diff_dist, layer = layer, 
-                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                               var_name = "mut_diff_dist")
+    ref_mat <- py_to_r(src_df)[1, , ]
+    stop_mat <- py_to_r(stop_df)[1, , ]
+    mut_mat <- py_to_r(mut_df)[1, , ]
+    syn_mat <- py_to_r(syn_df)[1, , ]
 
-  p3 <- plot_cosine_similarity(syn_diff_cosine_sim, layer = layer, 
-                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                             var_name = "syn_diff_cosine_sim")
-  p4 <- plot_euclidean_distance(syn_diff_dist, layer = layer, 
-                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                               var_name = "syn_diff_dist")
+    # Compute distances
+    mut_diff_dist <- compute_euclidean_distances(ref_mat, mut_mat)
+    mut_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, mut_mat)
 
-  p5 <- plot_cosine_similarity(stop_diff_cosine_sim, layer = layer, 
-                             highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                             var_name = "stop_diff_cosine_sim")
-  p6 <- plot_euclidean_distance(stop_diff_dist, layer = layer, 
-                               highlight = c(start_mut_hl+codon_pos_adj, end_mut_hl),
-                               var_name = "stop_diff_dist")
-  })
+    syn_diff_dist <- compute_euclidean_distances(ref_mat, syn_mat)
+    syn_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, syn_mat)
 
-  # Use file.path to construct proper paths
-  ggsave(file.path(output_dir, "cosine_sim_mut.pdf"), p1, width = 8, height = 6)
-  ggsave(file.path(output_dir, "euclidean_dist_mut.pdf"), p2, width = 8, height = 6)
+    stop_diff_dist <- compute_euclidean_distances(ref_mat, stop_mat)
+    stop_diff_cosine_sim <- compute_log_invert_cosine_sim(ref_mat, stop_mat)
 
-  ggsave(file.path(output_dir, "cosine_sim_syn.pdf"), p3, width = 8, height = 6)
-  ggsave(file.path(output_dir, "euclidean_dist_syn.pdf"), p4, width = 8, height = 6)
+    suppressWarnings({
+      p1 <- plot_cosine_similarity(
+        mut_diff_cosine_sim, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "mut_diff_cosine_sim",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
+      p2 <- plot_euclidean_distance(
+        mut_diff_dist, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "mut_diff_dist",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
 
-  ggsave(file.path(output_dir, "cosine_sim_stop.pdf"), p5, width = 8, height = 6)
-  ggsave(file.path(output_dir, "euclidean_dist_stop.pdf"), p6, width = 8, height = 6)
+      p3 <- plot_cosine_similarity(
+        syn_diff_cosine_sim, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "syn_diff_cosine_sim",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
+      p4 <- plot_euclidean_distance(
+        syn_diff_dist, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "syn_diff_dist",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
+
+      p5 <- plot_cosine_similarity(
+        stop_diff_cosine_sim, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "stop_diff_cosine_sim",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
+      p6 <- plot_euclidean_distance(
+        stop_diff_dist, layer = layer,
+        highlight = c(gene_start_hl, end_mut_hl),
+        var_name = "stop_diff_dist",
+        mutation_region = c(mut_codon_xmin, mut_codon_xmax),
+        gene_start_pos = gene_start_hl,
+        color_by_codon = TRUE
+      )
+    })
+
+    # Save into subdirectory per embedding type
+    out_dir <- file.path(output_dir, embed_type)
+    dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+    ggsave(file.path(out_dir, "cosine_sim_mut.pdf"), p1, width = 8, height = 6)
+    ggsave(file.path(out_dir, "euclidean_dist_mut.pdf"), p2, width = 8, height = 6)
+    ggsave(file.path(out_dir, "cosine_sim_syn.pdf"), p3, width = 8, height = 6)
+    ggsave(file.path(out_dir, "euclidean_dist_syn.pdf"), p4, width = 8, height = 6)
+    ggsave(file.path(out_dir, "cosine_sim_stop.pdf"), p5, width = 8, height = 6)
+    ggsave(file.path(out_dir, "euclidean_dist_stop.pdf"), p6, width = 8, height = 6)
+  }
   print("Done!")
 }
