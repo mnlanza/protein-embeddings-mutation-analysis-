@@ -1,122 +1,112 @@
-# Layer Embedding Analysis Pipeline
+## Protein Embeddings Mutation Analysis
 
-This repository contains scripts and tools for analyzing evo2 embeddings across different layers, with a focus on comparing embeddings between wild-type and mutated sequences.
+**Do protein LMs retain mutation information along the sequence?** This project builds a reproducible pipeline to quantify how long EVO2 embeddings “remember” an AMR mutation relative to wild‑type. On gyrA, we find the mutation signal peaks at the codon and fades within ~200–500 nt, shorter than expected. We propose steering toward biologically relevant mutations to extend this retention window.
 
-## Data Preparation
+### Roles this showcases
+- **ML/Applied**: embedding analysis, similarity metrics, representation diagnostics
+- **SWE/Data**: CLI pipeline, job orchestration, reproducible outputs, clear I/O contracts
+- **Comp Bio**: variant generation, codon models, hypothesis‑driven evaluation
 
-### Input Data Requirements
+---
 
-1. Human Contigs Source FASTA (`input/human_contigs_src.fasta`)
-   - Contains the original (non-mutated) sequences from human contigs
-   - Each sequence includes the source/wild-type codons
-   - Generated from the original human genomic data
+## Results at a glance
+- **Finding**: Mutation vs wild‑type difference vector direction (cosine angle) spikes at the mutation and decays within ~500 nt. Distance magnitude decays faster (~200 nt).
+- **Scope**: 8 gyrA genes × 4 variants each; consistent trend across samples.
+- **Implication**: Middle layers (e.g., layer 14) capture local effects; targeted steering may help the model retain biologically meaningful mutation information longer.
 
-2. Codon Table (`input/codon_table`)
-   - Reference table (codon table 11) for codon-amino acid mappings for bacteria
+Key figures (example, layer 14 pre‑norm):
+- `figures/baa/14/pre_norm/cosine_sim_mut.pdf` (angle between difference vectors)
+- `figures/baa/14/pre_norm/euclidean_dist_mut.pdf` (distance between difference vectors)
 
-3. Updated Data TSV (`input/updated_data.tsv`)
-   - Contains contig information with columns:
-     - aid: Subject ID
-     - gene: Gene identifier
-     - contig: Contig identifier
-     - start: Gene start position within the contig
-     - end: Gene end position within the contig
-     - strand: DNA strand (+ or -)
-     - src_codon: Source/wild-type codon
-     - tgt_codon: Target/mutated codon
-     - flipped: Strand orientation flag (True if the source codon and target codon got flipped when constructing contig)
-     - mut_pos: Mutation amino acid position inside the gene
+---
 
-## Pipeline Overview
+## Quickstart
 
-### 1. Running the Analysis (`run_embed_mut_analysis.sh`)
+### Prereqs
+- Python 3, R (with `ggplot2`), and the EVO2 GCP CLI
+  - EVO2 GCP: `https://github.com/eitanyaffe/evo2_gcp`
+- Python deps: `pip install -r requirements.txt`
+- R deps (in R): `install.packages("ggplot2"); install.packages("reticulate")`
 
-The main script orchestrates the analysis for multiple sequences:
-
+### Minimal demo (replicates example figures)
 ```bash
-# Run analysis for all AIDs at layer 28
-./run_embed_mut_analysis.sh 28
+# From repo root
+./run_embed_mut_analysis.sh 14 baa
+```
+Outputs:
+- Embeddings are fetched to `jobs/` (cleaned after plotting)
+- Plots saved under `figures/baa/14/pre_norm/`
 
-# Run analysis for specific AID at layer 28
-./run_embed_mut_analysis.sh 28 baa
+Runtime: ~10 minutes on GCP per run (varies by inputs).
+
+---
+
+## How it works
+1. **Variant generation**: `scripts/gen_for_codons_variants.py` creates 64 codon variants at a target aa position with user‑defined margins and writes a TSV descriptor.
+2. **Embeddings**: `scripts/analyze_codon_pos_embed.sh` submits sequences to EVO2 via `evo_gcp` for the requested layer(s) and downloads `.npy` outputs.
+3. **Visualization**: `scripts/plot_layer.R` loads `.npy` via `reticulate`, computes cosine angle and Euclidean distance per nucleotide, and saves mutation/synonymous/stop controls.
+4. **Batching**: `run_embed_mut_analysis.sh` iterates rows in `input/updated_data.tsv` and orchestrates jobs per AID.
+
+### Inputs
+1. `input/human_contigs_src.fasta`: source contigs (wild‑type)
+2. `input/codon_table`: codon→aa map (table 11)
+3. `input/updated_data.tsv`: columns include `aid, gene, contig, start, end, strand, src_codon, tgt_codon, flipped, mut_pos`
+
+### Outputs
+- `output/{aid}/{layer}/query_{seq_id}_{pos}.fasta` (64 variants with margins)
+- `output/{aid}/{layer}/query_{seq_id}_{pos}.tab` (plot metadata)
+- `figures/{aid}/{layer}/{embed_type}/` PDFs for mutation, synonymous, and stop controls
+
+---
+
+## Repo structure
+```
+scripts/
+  analyze_codon_pos_embed.sh   # per‑position job: variants → evo_gcp → plots
+  gen_for_codons_variants.py   # builds 64 codon variants with margins
+  plot_layer.R                 # R/ggplot2 visualizations via reticulate
+run_embed_mut_analysis.sh      # batch runner over updated_data.tsv (layer, optional AID)
+input/                         # FASTA, codon table, and TSV
+output/                        # generated FASTA + metadata
+figures/                       # saved plots
 ```
 
-Parameters:
-- Layer number (required)
-- AID filter (optional)
+---
 
-### 2. Codon Analysis Process (`scripts/analyze_codon_pos_embed.sh`)
+## What I contributed
+- Designed and implemented the end‑to‑end pipeline (Python, Bash, R)
+- Built the variant generator and plotting components; integrated `evo_gcp`
+- Conducted experiments on gyrA AMR mutations; analyzed and summarized results
+- Mentored by and collaborated with Eitan Yaffe
 
-For each mutation in the dataset:
-
-1. **Sequence Generation**
-   - Uses `scripts/gen_for_codons_variants.py` to generate sequence variants
-   - Extracts sequence context around mutation site
-   - Parameters:
-     - Left margin: 2000bp (default)
-     - Right margin: 1000bp (default)
-
-2. **Embedding Generation**
-   - Submits sequences to language model via `evo_gcp`
-   - Generates embeddings for specified layer
-   - Downloads results to `jobs/` directory
-
-3. **Visualization**
-   - Uses R scripts to generate plots
-   - Compares embeddings between variants
-   - Outputs plots to `figures/` directory
-
-## Directory Structure
-
-```
-.
-├── input/
-│   ├── codon_table
-│   ├── human_contigs_src.fasta
-│   └── updated_data.tsv
-├── jobs/
-│   └── {aid}-{seq_id}-{pos}-layer{layer}/
-│       └── output/
-├── output/
-│   └── {aid}/
-│       └── {layer}/
-│           ├── query_{seq_id}_{pos}.fasta
-│           └── query_{seq_id}_{pos}.tab
-├── figures/
-│   └── {aid}/
-│       └── {layer}/
-│           ├── cosine_sim_*.pdf
-│           └── euclidean_dist_*.pdf
-├── scripts/
-│   ├── analyze_codon_pos_embed.sh
-│   ├── gen_for_codons_variants.py
-│   └── plot_layer.R
-└── run_embed_mut_analysis.sh
-```
-
-## Output Files
-
-### 1. FASTA Files
-- Location: `output/{aid}/{layer}/query_{seq_id}_{pos}.fasta`
-- Contains sequence variants for analysis (64 total for each codon position)
-
-### 2. Plot Information Tables
-- Location: `output/{aid}/{layer}/query_{seq_id}_{pos}.tab`
-- Contains metadata for plotting
-
-### 3. Embedding Files
-- Location: `jobs/{aid}-{seq_id}-{pos}-layer{layer}/output/`
-- Contains evo2 embeddings
-
-### 4. Visualization Plots
-- Location: `figures/{aid}/{layer}/`
-- Types:
-  - Cosine similarity plots (`cosine_sim_*.pdf`)
-  - Euclidean distance plots (`euclidean_dist_*.pdf`)
+---
 
 ## Requirements
+- Python deps in `requirements.txt`
+- R: `ggplot2`, `reticulate`
+- EVO2 GCP CLI configured per `evo2_gcp` documentation
 
-Dependencies are listed in `requirements.txt`. The pipeline requires:
-- Python 3
-- R with required plotting libraries
-- Access to `evo_gcp` service for embeddings generation
+---
+
+## Public availability / usage notice
+This repository is publicly visible (clone, inspect, fork). Running the full system—especially Google Cloud operations—requires:
+
+- A Google Cloud Platform (GCP) project with billing enabled
+- Appropriate IAM permissions/service account credentials to create/manage resources (VMs, containers, storage buckets, batch jobs, etc.)
+- Enabling required Google APIs for your project
+- Awareness that compute/storage usage will incur costs to the GCP project owner
+
+If using in a shared or organizational environment, ensure credentials and IAM policies are properly configured, and do not expose secret keys in public.
+
+## Next directions
+- Evaluate layer‑wise retention across more genes and conditions
+- Implement and test mutation‑aware steering vectors; measure retention extension
+- Add quantitative significance tests and confidence bands around decay curves
+
+---
+
+## License and contact
+- License: No license. All rights reserved (contact for permissions beyond personal review).
+- Contact: marcolanza@berkeley.edu • LinkedIn: [marconlanza](https://www.linkedin.com/in/marconlanza/)
+
+If you’re hiring for ML, SWE/Data, or comp‑bio roles and this is relevant, I’d love to chat.

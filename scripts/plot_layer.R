@@ -38,31 +38,61 @@ get_mutation_type <- function(var_name) {
 
 plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NULL, 
                                 xlim_bounds = NULL, var_name = "", mutation_region = NULL,
-                                gene_start_pos = NULL, color_by_codon = TRUE) {
+                                gene_start_pos = NULL, color_by_codon = TRUE,
+                                steer_region = NULL) {
   mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(log_invert_cosine_sim), cos_sim = log_invert_cosine_sim)
   # Start base plot
   p <- ggplot(df, aes(x = pos, y = cos_sim))
 
+  # Optional: reference lines FIRST so they draw behind everything else
+  if (!is.null(highlight)) {
+    pos_vals <- as.numeric(highlight)
+    if (length(pos_vals) >= 2) {
+      ref_df <- data.frame(
+        x = c(pos_vals[1], pos_vals[2]),
+        ref = factor(c("Gene Start", "Gene End"), levels = c("Gene Start", "Gene End"))
+      )
+      p <- p +
+        geom_vline(
+          data = ref_df,
+          aes(xintercept = x, linetype = ref),
+          color = "black", alpha = 0.35, linewidth = 0.6, show.legend = TRUE
+        ) +
+        scale_linetype_manual(name = "Reference", values = c("Gene Start" = "dashed", "Gene End" = "dotted")) +
+        guides(linetype = guide_legend(title = "Reference", override.aes = list(alpha = 1.0, color = "black", linewidth = 0.6)))
+    }
+  }
+
+  # Optional: shaded region for steering window (with legend)
+  if (!is.null(steer_region) && length(steer_region) == 2) {
+    steer_df <- data.frame(
+      xmin = steer_region[1], xmax = steer_region[2],
+      ymin = -Inf, ymax = Inf,
+      label = factor("Steering Window", levels = c("Mutation Codon", "Steering Window"))
+    )
+    p <- p + geom_rect(data = steer_df,
+                       aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+                       inherit.aes = FALSE, alpha = 0.12, color = NA)
+  }
+
   # Optional: shaded region for mutation codon (with legend) FIRST so points draw on top
   if (!is.null(mutation_region) && length(mutation_region) == 2) {
     region_df <- data.frame(
-      xmin = mutation_region[1],
-      xmax = mutation_region[2],
-      ymin = -Inf,
-      ymax = Inf,
-      label = factor("Mutation Codon", levels = c("Mutation Codon"))
+      xmin = mutation_region[1], xmax = mutation_region[2],
+      ymin = -Inf, ymax = Inf,
+      label = factor("Mutation Codon", levels = c("Mutation Codon", "Steering Window"))
     )
-    p <- p +
-      geom_rect(
-        data = region_df,
-        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
-        inherit.aes = FALSE,
-        alpha = 0.22,
-        color = "#6baed6",
-        linewidth = 0.2
-      ) +
-      scale_fill_manual(values = c("Mutation Codon" = "#6baed6"), name = NULL)
+    p <- p + geom_rect(data = region_df,
+                       aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+                       inherit.aes = FALSE,
+                       alpha = 0.22, color = "#6baed6", linewidth = 0.2)
+  }
+
+  # Combine fill legend for regions if any present
+  if ((!is.null(mutation_region) && length(mutation_region) == 2) || (!is.null(steer_region) && length(steer_region) == 2)) {
+    p <- p + scale_fill_manual(values = c("Mutation Codon" = "#6baed6", "Steering Window" = "#9e9ac8"), name = NULL) +
+      guides(fill = guide_legend(override.aes = list(linetype = 0, linewidth = 0, colour = NA)))
   }
 
   # Points: optionally color by codon position relative to gene_start_pos
@@ -71,7 +101,8 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
     p <- p +
       geom_point(data = df, aes(x = pos, y = cos_sim, color = factor(codon_i)), alpha = 0.6, size = 1.2) +
       scale_color_manual(name = "Codon position",
-                         values = c("1" = "red", "2" = "orange", "3" = "green"))
+                         values = c("1" = "red", "2" = "orange", "3" = "green")) +
+      guides(color = guide_legend(override.aes = list(linetype = 0, linewidth = 0)))
   } else {
     p <- p + geom_point(color = "darkred", alpha = 0.6, size = 1.2)
   }
@@ -81,18 +112,6 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
          x = "Nucleotide Position",
          y = "Log Inverse Cosine Similarity") +
     theme_minimal()
-    
-  # (moved earlier so it draws under points)
-
-  # Optional: vertical lines for gene start/end (fixed colors to avoid legend conflicts)
-  if (!is.null(highlight)) {
-    pos_vals <- as.numeric(highlight)
-    if (length(pos_vals) >= 2) {
-      p <- p +
-        geom_vline(xintercept = pos_vals[1], linetype = "dashed", linewidth = 0.5, color = "orange", show.legend = FALSE) +
-        geom_vline(xintercept = pos_vals[2], linetype = "dashed", linewidth = 0.5, color = "green", show.legend = FALSE)
-    }
-  }
   
   # Optional: x-axis limits
   if (!is.null(xlim_bounds)) {
@@ -103,31 +122,61 @@ plot_cosine_similarity <- function(log_invert_cosine_sim, layer, highlight = NUL
 
 plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL, 
                                 xlim_bounds = NULL, var_name = "", mutation_region = NULL,
-                                gene_start_pos = NULL, color_by_codon = TRUE) {
+                                gene_start_pos = NULL, color_by_codon = TRUE,
+                                steer_region = NULL) {
   mutation_type <- get_mutation_type(var_name)
   df <- data.frame(pos = 1:length(euclidean_distances), euclidean_dist = euclidean_distances)
   # Start base plot
   p <- ggplot(df, aes(x = pos, y = euclidean_dist))
 
+  # Optional: reference lines FIRST so they draw behind everything else
+  if (!is.null(highlight)) {
+    pos_vals <- as.numeric(highlight)
+    if (length(pos_vals) >= 2) {
+      ref_df <- data.frame(
+        x = c(pos_vals[1], pos_vals[2]),
+        ref = factor(c("Gene Start", "Gene End"), levels = c("Gene Start", "Gene End"))
+      )
+      p <- p +
+        geom_vline(
+          data = ref_df,
+          aes(xintercept = x, linetype = ref),
+          color = "black", alpha = 0.35, linewidth = 0.6, show.legend = TRUE
+        ) +
+        scale_linetype_manual(name = "Reference", values = c("Gene Start" = "dashed", "Gene End" = "dotted")) +
+        guides(linetype = guide_legend(title = "Reference", override.aes = list(alpha = 1.0, color = "black", linewidth = 0.6)))
+    }
+  }
+
+  # Optional: shaded region for steering window (with legend)
+  if (!is.null(steer_region) && length(steer_region) == 2) {
+    steer_df <- data.frame(
+      xmin = steer_region[1], xmax = steer_region[2],
+      ymin = -Inf, ymax = Inf,
+      label = factor("Steering Window", levels = c("Mutation Codon", "Steering Window"))
+    )
+    p <- p + geom_rect(data = steer_df,
+                       aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+                       inherit.aes = FALSE, alpha = 0.12, color = NA)
+  }
+
   # Optional: shaded region for mutation codon (with legend) FIRST so points draw on top
   if (!is.null(mutation_region) && length(mutation_region) == 2) {
     region_df <- data.frame(
-      xmin = mutation_region[1],
-      xmax = mutation_region[2],
-      ymin = -Inf,
-      ymax = Inf,
-      label = factor("Mutation Codon", levels = c("Mutation Codon"))
+      xmin = mutation_region[1], xmax = mutation_region[2],
+      ymin = -Inf, ymax = Inf,
+      label = factor("Mutation Codon", levels = c("Mutation Codon", "Steering Window"))
     )
-    p <- p +
-      geom_rect(
-        data = region_df,
-        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
-        inherit.aes = FALSE,
-        alpha = 0.22,
-        color = "#6baed6",
-        linewidth = 0.2
-      ) +
-      scale_fill_manual(values = c("Mutation Codon" = "#6baed6"), name = NULL)
+    p <- p + geom_rect(data = region_df,
+                       aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
+                       inherit.aes = FALSE,
+                       alpha = 0.22, color = "#6baed6", linewidth = 0.2)
+  }
+
+  # Combine fill legend for regions if any present
+  if ((!is.null(mutation_region) && length(mutation_region) == 2) || (!is.null(steer_region) && length(steer_region) == 2)) {
+    p <- p + scale_fill_manual(values = c("Mutation Codon" = "#6baed6", "Steering Window" = "#9e9ac8"), name = NULL) +
+      guides(fill = guide_legend(override.aes = list(linetype = 0, linewidth = 0, colour = NA)))
   }
 
   # Points: optionally color by codon position relative to gene_start_pos
@@ -136,7 +185,8 @@ plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL
     p <- p +
       geom_point(data = df, aes(x = pos, y = euclidean_dist, color = factor(codon_i)), alpha = 0.6, size = 1.2) +
       scale_color_manual(name = "Codon position",
-                         values = c("1" = "red", "2" = "orange", "3" = "green"))
+                         values = c("1" = "red", "2" = "orange", "3" = "green")) +
+      guides(color = guide_legend(override.aes = list(linetype = 0, linewidth = 0)))
   } else {
     p <- p + geom_point(color = "darkred", alpha = 0.6, size = 1.2)
   }
@@ -146,18 +196,6 @@ plot_euclidean_distance <- function(euclidean_distances, layer, highlight = NULL
          x = "Nucleotide Position",
          y = "Euclidean Distance") +
     theme_minimal()
-    
-  # (moved earlier so it draws under points)
-
-  # Optional: vertical lines for gene start/end (fixed colors to avoid legend conflicts)
-  if (!is.null(highlight)) {
-    pos_vals <- as.numeric(highlight)
-    if (length(pos_vals) >= 2) {
-      p <- p +
-        geom_vline(xintercept = pos_vals[1], linetype = "dashed", linewidth = 0.5, color = "orange", show.legend = FALSE) +
-        geom_vline(xintercept = pos_vals[2], linetype = "dashed", linewidth = 0.5, color = "green", show.legend = FALSE)
-    }
-  }
   
   if (!is.null(xlim_bounds)) {
     p <- p + coord_cartesian(xlim = xlim_bounds)
@@ -231,6 +269,7 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
   gene_start_hl <- left_margin + 1
   mut_codon_xmin <- start_mut_hl
   mut_codon_xmax <- start_mut_hl + 2
+  steer_region <- c(mut_codon_xmax, mut_codon_xmax + 199)
 
   for (embed_type in c("mlp_l3", "pre_norm")) {
     message(paste("Processing embed type:", embed_type))
@@ -262,7 +301,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "mut_diff_cosine_sim",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
       p2 <- plot_euclidean_distance(
         mut_diff_dist, layer = layer,
@@ -270,7 +310,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "mut_diff_dist",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
 
       p3 <- plot_cosine_similarity(
@@ -279,7 +320,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "syn_diff_cosine_sim",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
       p4 <- plot_euclidean_distance(
         syn_diff_dist, layer = layer,
@@ -287,7 +329,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "syn_diff_dist",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
 
       p5 <- plot_cosine_similarity(
@@ -296,7 +339,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "stop_diff_cosine_sim",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
       p6 <- plot_euclidean_distance(
         stop_diff_dist, layer = layer,
@@ -304,7 +348,8 @@ plot_layer_diff <- function(layer_data_tsv, output_dir, embed_dir) {
         var_name = "stop_diff_dist",
         mutation_region = c(mut_codon_xmin, mut_codon_xmax),
         gene_start_pos = gene_start_hl,
-        color_by_codon = TRUE
+        color_by_codon = TRUE,
+        steer_region = steer_region
       )
     })
 

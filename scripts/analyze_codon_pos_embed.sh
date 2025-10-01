@@ -99,15 +99,15 @@ evo_gcp download --job "$job_id" \
   --job_version "$job_version" \
   --jobs_dir "$(pwd)/jobs"
   
-# Plot embedding differences
-Rscript -e "
+# Plot embedding differences (use heredoc to avoid line-continuation/quoting issues)
+Rscript - <<RSCRIPT
 source('scripts/plot_layer.R')
 plot_layer_diff(
-  layer_data_tsv='$plot_info_table',
+  layer_data_tsv='${plot_info_table}',
   output_dir='figures/${aid}/${layer}',
   embed_dir='$(pwd)/jobs/${job_id}-${job_version}'
 )
-"
+RSCRIPT
 
 # Clean up job directory to free up space
 echo "Cleaning up job directory: $job_dir"
