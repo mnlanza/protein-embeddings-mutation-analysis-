@@ -1,6 +1,8 @@
-## Protein Embeddings Mutation Analysis
+## Evaluating EVO2 (single‑nucleotide LLM) on AMR mutation retention
 
-**Do protein LMs retain mutation information along the sequence?** This project builds a reproducible pipeline to quantify how long EVO2 embeddings “remember” an AMR mutation relative to wild‑type. On gyrA, we find the mutation signal peaks at the codon and fades within ~200–500 nt, shorter than expected. We propose steering toward biologically relevant mutations to extend this retention window.
+**Goal**: Evaluate the state‑of‑the‑art, single‑nucleotide‑resolution protein LLM EVO2 on its ability to understand and retain information about key antimicrobial resistance (AMR) mutations along the sequence—so the model can, in principle, help predict functional protein differences under mutation.
+
+**Summary**: Using a reproducible pipeline on gyrA, we compare wild‑type vs mutated sequence embeddings across layers. We observe that the mutation signal peaks at the codon and decays within ~200–500 nt (cosine angle) and ~200 nt (distance), shorter than expected for downstream functional impact. This suggests exploring mutation‑aware “steering” toward biologically relevant positions to extend the model’s retention window.
 
 ### Roles this showcases
 - **ML/Applied**: embedding analysis, similarity metrics, representation diagnostics
